@@ -1,0 +1,23 @@
+{
+  "name": "gossamer",
+  "version": "1.0.0",
+  "description": "Push TLS certificates to TrueNAS and Supermicro IPMI hosts",
+  "main": "src/push-certs.js",
+  "bin": {
+    "gossamer": "src/push-certs.js"
+  },
+  "scripts": {
+    "start": "node src/push-certs.js"
+  },
+  "dependencies": {
+    "playwright": "1.58.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/venezia/gossamer.git"
+  }
+}

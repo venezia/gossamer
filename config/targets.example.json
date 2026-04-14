@@ -1,0 +1,24 @@
+[
+  {
+    "host": "nas1.example.com",
+    "type": "truenas",
+    "tokenEnv": "TRUENAS_NAS1_TOKEN"
+  },
+  {
+    "host": "nas2.example.com",
+    "type": "truenas",
+    "tokenEnv": "TRUENAS_NAS2_TOKEN"
+  },
+  {
+    "host": "nas1-ipmi.example.com",
+    "type": "ipmi",
+    "usernameEnv": "IPMI_USERNAME",
+    "passwordEnv": "IPMI_PASSWORD"
+  },
+  {
+    "host": "nas2-ipmi.example.com",
+    "type": "ipmi",
+    "usernameEnv": "IPMI_USERNAME",
+    "passwordEnv": "IPMI_PASSWORD"
+  }
+]
