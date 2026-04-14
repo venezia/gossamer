@@ -1,0 +1,12 @@
+apiVersion: v2
+name: gossamer
+description: Push TLS certificates to TrueNAS and Supermicro IPMI hosts
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+home: https://github.com/venezia/gossamer
+sources:
+  - https://github.com/venezia/gossamer
+maintainers:
+  - name: Michael Venezia
+    url: https://github.com/venezia

@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "gossamer.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gossamer.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  concurrencyPolicy: {{ .Values.cronjob.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.cronjob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronjob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.cronjob.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.cronjob.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "gossamer.labels" . | nindent 12 }}
+        spec:
+          serviceAccountName: {{ include "gossamer.serviceAccountName" . }}
+          restartPolicy: Never
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumes:
+          - name: certs
+            emptyDir: {}
+          - name: targets
+            configMap:
+              name: {{ include "gossamer.fullname" . }}-targets
+          containers:
+          - name: gossamer
+            image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            imagePullPolicy: {{ .Values.image.pullPolicy }}
+            volumeMounts:
+            - name: certs
+              mountPath: /certs
+            - name: targets
+              mountPath: /config
+            args:
+            {{- if .Values.tlsSecret.fetchFromCluster }}
+            - --fetch-secret
+            - --secret-namespace
+            - {{ .Values.tlsSecret.namespace }}
+            - --secret-name
+            - {{ .Values.tlsSecret.name }}
+            {{- end }}
+            - --config
+            - /config/targets.json
+            env:
+            {{- /* TrueNAS tokens from secret */}}
+            {{- $truenasSecretName := .Values.credentials.truenasSecret | default (printf "%s-truenas" (include "gossamer.fullname" .)) }}
+            {{- range .Values.targets }}
+            {{- if eq .type "truenas" }}
+            - name: {{ .tokenEnv }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $truenasSecretName }}
+                  key: {{ .tokenEnv }}
+            {{- end }}
+            {{- end }}
+            {{- /* IPMI credentials from secret */}}
+            {{- $ipmiSecretName := .Values.credentials.ipmiSecret | default (printf "%s-ipmi" (include "gossamer.fullname" .)) }}
+            {{- $ipmiEnvsSeen := dict }}
+            {{- range .Values.targets }}
+            {{- if eq .type "ipmi" }}
+            {{- if not (hasKey $ipmiEnvsSeen .usernameEnv) }}
+            {{- $_ := set $ipmiEnvsSeen .usernameEnv true }}
+            - name: {{ .usernameEnv }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $ipmiSecretName }}
+                  key: {{ .usernameEnv }}
+            {{- end }}
+            {{- if not (hasKey $ipmiEnvsSeen .passwordEnv) }}
+            {{- $_ := set $ipmiEnvsSeen .passwordEnv true }}
+            - name: {{ .passwordEnv }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $ipmiSecretName }}
+                  key: {{ .passwordEnv }}
+            {{- end }}
+            {{- end }}
+            {{- end }}

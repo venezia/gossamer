@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gossamer.fullname" . }}-targets
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gossamer.labels" . | nindent 4 }}
+data:
+  targets.json: {{ .Values.targets | toJson | quote }}
