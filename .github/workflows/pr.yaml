@@ -1,0 +1,26 @@
+name: PR
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  commitlint:
+    runs-on: arc-runner-gossamer
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "24"
+    - run: npm install -g @commitlint/cli @commitlint/config-conventional
+    - name: Lint commits
+      run: commitlint --from "${{ github.event.pull_request.base.sha }}" --to HEAD
+
+  helm-lint:
+    runs-on: arc-runner-gossamer
+    steps:
+    - uses: actions/checkout@v4
+    - name: Lint Helm chart
+      run: helm lint charts/gossamer

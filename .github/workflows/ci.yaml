@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
 
@@ -17,13 +15,8 @@ jobs:
       with:
         node-version: "24"
     - run: npm install -g @commitlint/cli @commitlint/config-conventional
-    - name: Lint commits
-      run: |
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          commitlint --from "${{ github.event.pull_request.base.sha }}" --to HEAD
-        else
-          commitlint --from HEAD~1
-        fi
+    - name: Lint latest commit
+      run: commitlint --from HEAD~1
 
   helm-lint:
     runs-on: arc-runner-gossamer
@@ -34,16 +27,13 @@ jobs:
 
   release:
     needs: [commitlint, helm-lint]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: arc-runner-gossamer
     permissions:
       contents: write
-      packages: write
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        persist-credentials: false
     - uses: actions/setup-node@v4
       with:
         node-version: "24"
