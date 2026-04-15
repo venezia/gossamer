@@ -25,7 +25,7 @@ jobs:
     - name: Lint Helm chart
       run: helm lint charts/gossamer
 
-  release:
+  publish:
     needs: [commitlint, helm-lint]
     runs-on: arc-runner-gossamer
     permissions:
@@ -38,8 +38,42 @@ jobs:
       with:
         node-version: "24"
     - name: Install semantic-release
-      run: npm install -g semantic-release @semantic-release/github @semantic-release/commit-analyzer @semantic-release/release-notes-generator conventional-changelog-conventionalcommits
+      run: >
+        npm install -g
+        semantic-release
+        @semantic-release/github
+        @semantic-release/commit-analyzer
+        @semantic-release/release-notes-generator
+        conventional-changelog-conventionalcommits
+    - name: Record current tag
+      id: pre
+      run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || echo none)" >> "$GITHUB_OUTPUT"
     - name: Run semantic-release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: semantic-release
+    - name: Check for new release
+      id: post
+      run: |
+        NEW_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo none)
+        echo "tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
+        if [ "$NEW_TAG" != "${{ steps.pre.outputs.tag }}" ] && [ "$NEW_TAG" != "none" ]; then
+          echo "released=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "released=false" >> "$GITHUB_OUTPUT"
+        fi
+    - name: Update release with git-cliff notes
+      if: steps.post.outputs.released == 'true'
+      uses: orhun/git-cliff-action@v4
+      with:
+        config: cliff.toml
+        args: --current --strip header
+      env:
+        OUTPUT: RELEASE_NOTES.md
+    - name: Update GitHub Release body
+      if: steps.post.outputs.released == 'true'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release edit "${{ steps.post.outputs.tag }}" \
+          --notes-file RELEASE_NOTES.md
