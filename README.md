@@ -7,18 +7,44 @@ on TrueNAS storage servers and Supermicro IPMI BMCs. It supports pushing certs
 via the TrueNAS REST API and driving the Supermicro BMC web UI with a headless
 browser (Playwright).
 
+```
+                         +-------------------+
+                         |  Certificate      |
+                         |  Source           |
+                         |  (file or K8s)    |
+                         +---------+---------+
+                                   |
+                                   v
+                         +-------------------+
+                         |    Gossamer       |
+                         |                   |
+                         |  - reads cert/key |
+                         |  - converts key   |
+                         |    to PKCS#8      |
+                         +---------+---------+
+                                   |
+                    +--------------+--------------+
+                    |                             |
+                    v                             v
+          +------------------+          +------------------+
+          |  TrueNAS hosts   |          |  IPMI BMCs       |
+          |                  |          |                  |
+          |  REST API        |          |  Headless        |
+          |  - import cert   |          |  browser         |
+          |  - activate      |          |  - login         |
+          |  - cleanup old   |          |  - upload cert   |
+          |                  |          |  - reset BMC     |
+          +------------------+          +------------------+
+```
+
 ## Supported Targets
 
-- **TrueNAS SCALE/CORE** — REST API (`/api/v2.0/certificate`)
-- **Supermicro IPMI** — Headless browser automation (ATEN-based BMC web UI)
+- **TrueNAS SCALE/CORE** -- REST API (`/api/v2.0/certificate`)
+- **Supermicro IPMI** -- Headless browser automation (ATEN-based BMC web UI)
 
 ## Quick Start
 
 ```bash
-# Build the container
-docker build -t gossamer .
-
-# Run with cert files and a targets config
 docker run --rm \
   -v /path/to/cert.pem:/certs/tls.crt:ro \
   -v /path/to/key.pem:/certs/tls.key:ro \
@@ -26,7 +52,7 @@ docker run --rm \
   -e TRUENAS_NAS1_TOKEN=your-api-token \
   -e IPMI_USERNAME=admin \
   -e IPMI_PASSWORD=yourpassword \
-  gossamer \
+  ghcr.io/venezia/gossamer:latest \
     --cert /certs/tls.crt \
     --key /certs/tls.key \
     --config /config/targets.json
@@ -34,79 +60,30 @@ docker run --rm \
 
 ## Configuration
 
-Create a `targets.json` file listing your hosts:
+See [docs/configuration.md](docs/configuration.md) for full details on
+targets, credentials, and all available options.
 
-```json
-[
-  {
-    "host": "nas1.example.com",
-    "type": "truenas",
-    "tokenEnv": "TRUENAS_NAS1_TOKEN"
-  },
-  {
-    "host": "nas1-ipmi.example.com",
-    "type": "ipmi",
-    "usernameEnv": "IPMI_USERNAME",
-    "passwordEnv": "IPMI_PASSWORD"
-  }
-]
-```
+## Kubernetes Deployment
 
-Each target references environment variables for credentials — secrets are
-never stored in the config file.
+A Helm chart is available for running Gossamer as a CronJob that
+automatically reads certificates from a Kubernetes Secret (e.g., one
+managed by cert-manager).
 
-### Target Types
+See [docs/kubernetes.md](docs/kubernetes.md) for installation and
+configuration.
 
-#### `truenas`
-Pushes the certificate via the TrueNAS REST API:
-1. Imports the cert and key
-2. Sets it as the active UI certificate
-3. Restarts the web UI
-4. Cleans up previously imported certificates
+## How It Works
 
-Requires a TrueNAS API token (create one in the TrueNAS UI under your user's API Keys).
+See [docs/how-it-works.md](docs/how-it-works.md) for details on the
+TrueNAS API integration and Supermicro IPMI browser automation.
 
-#### `ipmi`
-Uploads the certificate via the Supermicro BMC web interface using Playwright:
-1. Logs into the BMC
-2. Navigates to Configuration > SSL Certification
-3. Uploads cert and key files
-4. Triggers an SSL reset (BMC reboots, takes ~30-60 seconds)
+## Key Features
 
-Requires a BMC admin account.
-
-## Kubernetes CronJob
-
-A Helm chart is included for deploying Gossamer as a Kubernetes CronJob.
-It handles RBAC, secret management, and scheduling automatically.
-
-```bash
-helm install gossamer oci://ghcr.io/venezia/gossamer \
-  --namespace cert-push --create-namespace \
-  --set tlsSecret.namespace=istio-ingress \
-  --set tlsSecret.name=wildcard-tls \
-  --set-json 'targets=[{"host":"nas1.example.com","type":"truenas","tokenEnv":"TRUENAS_TOKEN"}]' \
-  --set credentials.truenasTokens.TRUENAS_TOKEN=your-api-token
-```
-
-The chart creates:
-- A **CronJob** (default: weekly on Monday at 3 AM)
-- A **ServiceAccount** with RBAC to read the TLS secret from another namespace
-- **Secrets** for TrueNAS API tokens and IPMI credentials
-- A **ConfigMap** for the targets configuration
-
-When running in a pod, Gossamer uses `--fetch-secret` to read the TLS
-certificate directly from the Kubernetes API using the pod's service
-account token.
-
-See [`charts/gossamer/values.yaml`](charts/gossamer/values.yaml) for
-all available configuration options.
-
-## Key Format
-
-Supermicro IPMI requires PKCS#8 format keys (`BEGIN PRIVATE KEY`).
-Gossamer automatically converts PKCS#1 RSA keys to PKCS#8 — no
-manual conversion needed.
+- **Idempotent** -- safe to run repeatedly; re-imports the same cert without harm
+- **Continue on failure** -- if one target fails, the rest still get updated
+- **Automatic cleanup** -- removes old certificates from TrueNAS after import
+- **PKCS#8 conversion** -- automatically converts RSA keys to the format IPMI requires
+- **Non-zero exit** -- exits with code 1 if any target fails, for alerting in CI/cron
 
 ## License
 
