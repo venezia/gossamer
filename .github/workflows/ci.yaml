@@ -73,8 +73,7 @@ jobs:
         OUTPUT: RELEASE_NOTES.md
     - name: Update GitHub Release body
       if: steps.post.outputs.released == 'true'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gh release edit "${{ steps.post.outputs.tag }}" \
-          --notes-file RELEASE_NOTES.md
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.post.outputs.tag }}
+        body_path: RELEASE_NOTES.md
