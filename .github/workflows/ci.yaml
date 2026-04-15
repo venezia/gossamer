@@ -8,7 +8,7 @@ on:
 
 jobs:
   commitlint:
-    runs-on: self-hosted
+    runs-on: arc-runner-gossamer
     steps:
     - uses: actions/checkout@v4
       with:
@@ -26,7 +26,7 @@ jobs:
         fi
 
   helm-lint:
-    runs-on: self-hosted
+    runs-on: arc-runner-gossamer
     steps:
     - uses: actions/checkout@v4
     - name: Lint Helm chart
@@ -35,7 +35,7 @@ jobs:
   release:
     needs: [commitlint, helm-lint]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: self-hosted
+    runs-on: arc-runner-gossamer
     permissions:
       contents: write
       packages: write
