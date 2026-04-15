@@ -77,22 +77,30 @@ Requires a BMC admin account.
 
 ## Kubernetes CronJob
 
-Gossamer can run as a Kubernetes CronJob that reads the TLS cert from a
-cluster Secret (e.g., one managed by cert-manager):
+A Helm chart is included for deploying Gossamer as a Kubernetes CronJob.
+It handles RBAC, secret management, and scheduling automatically.
 
 ```bash
-docker run --rm \
-  gossamer \
-    --fetch-secret \
-    --secret-namespace istio-ingress \
-    --secret-name wildcard-tls \
-    --config /config/targets.json
+helm install gossamer oci://ghcr.io/venezia/gossamer \
+  --namespace cert-push --create-namespace \
+  --set tlsSecret.namespace=istio-ingress \
+  --set tlsSecret.name=wildcard-tls \
+  --set-json 'targets=[{"host":"nas1.example.com","type":"truenas","tokenEnv":"TRUENAS_TOKEN"}]' \
+  --set credentials.truenasTokens.TRUENAS_TOKEN=your-api-token
 ```
 
-When running in a pod with `--fetch-secret`, Gossamer uses the pod's
-service account token to read the Secret from the Kubernetes API.
-You'll need RBAC granting the service account `get` access to the
-target Secret.
+The chart creates:
+- A **CronJob** (default: weekly on Monday at 3 AM)
+- A **ServiceAccount** with RBAC to read the TLS secret from another namespace
+- **Secrets** for TrueNAS API tokens and IPMI credentials
+- A **ConfigMap** for the targets configuration
+
+When running in a pod, Gossamer uses `--fetch-secret` to read the TLS
+certificate directly from the Kubernetes API using the pod's service
+account token.
+
+See [`charts/gossamer/values.yaml`](charts/gossamer/values.yaml) for
+all available configuration options.
 
 ## Key Format
 
