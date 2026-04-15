@@ -22,5 +22,6 @@ jobs:
     runs-on: arc-runner-gossamer
     steps:
     - uses: actions/checkout@v4
+    - uses: azure/setup-helm@v4
     - name: Lint Helm chart
       run: helm lint charts/gossamer
