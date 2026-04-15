@@ -36,7 +36,7 @@ jobs:
       id: app-token
       uses: actions/create-github-app-token@v2
       with:
-        app-id: ${{ vars.APP_ID }}
+        app-id: 3391892
         private-key: ${{ secrets.APP_PRIVATE_KEY }}
     - uses: actions/checkout@v4
       with:
