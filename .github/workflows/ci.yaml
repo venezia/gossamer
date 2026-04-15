@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  commitlint:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "24"
+    - run: npm install -g @commitlint/cli @commitlint/config-conventional
+    - name: Lint commits
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          commitlint --from "${{ github.event.pull_request.base.sha }}" --to HEAD
+        else
+          commitlint --from HEAD~1
+        fi
+
+  helm-lint:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v4
+    - name: Lint Helm chart
+      run: helm lint charts/gossamer
